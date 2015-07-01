@@ -72,6 +72,7 @@ describe Octopus, :shards => [] do
 
     after do
       Object.send(:remove_const, :Rails)
+      Octopus.app_env = nil
     end
 
     it 'should be if octopus is configured and should hook into current environment' do

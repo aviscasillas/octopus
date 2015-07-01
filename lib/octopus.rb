@@ -10,8 +10,20 @@ module Octopus
     @env ||= 'octopus'
   end
 
-  def self.rails_env
-    @rails_env ||= self.rails? ? Rails.env.to_s : 'shards'
+  def self.default_app_env
+    'shards'
+  end
+
+  def self.app_env
+    # if @app_env == ''
+    #   require 'byebug'; byebug; true
+    # end
+
+    if rails? && Rails.env == ''
+      require 'byebug'; byebug; true
+    end
+
+    @app_env ||= rails? ? Rails.env.to_s : default_app_env
   end
 
   def self.config
@@ -34,19 +46,25 @@ module Octopus
   #
   # Returns a boolean
   def self.enabled?
-    if defined?(::Rails)
-      Octopus.environments.include?(Rails.env.to_s)
-    else
-      # TODO: This doens't feel right but !Octopus.config.blank? is breaking a
-      #       test. Also, Octopus.config is always returning a hash.
-      Octopus.config
-    end
+    return Octopus.environments.include?(app_env) if has_environments?
+
+    # TODO: This doens't feel right but !Octopus.config.blank? is breaking a
+    #       test. Also, Octopus.config is always returning a hash.
+    Octopus.config
+  end
+
+  def self.app_env=(env)
+    @app_env = env.to_s
+  end
+
+  def self.has_environments?
+    app_env != default_app_env
   end
 
   # Returns the Rails.root_to_s when you are using rails
   # Running the current directory in a generic Ruby process
   def self.directory
-    @directory ||= defined?(Rails) ?  Rails.root.to_s : Dir.pwd
+    @directory ||= rails? ?  Rails.root.to_s : Dir.pwd
   end
 
   # This is the default way to do Octopus Setup
@@ -75,7 +93,7 @@ module Octopus
   end
 
   def self.robust_environment?
-    robust_environments.include? rails_env
+    robust_environments.include? app_env
   end
 
   def self.rails3?
@@ -105,7 +123,7 @@ module Octopus
   end
 
   def self.shards=(shards)
-    config[rails_env] = HashWithIndifferentAccess.new(shards)
+    config[app_env] = HashWithIndifferentAccess.new(shards)
     ActiveRecord::Base.connection.initialize_shards(@config)
   end
 
@@ -143,7 +161,7 @@ require 'octopus/log_subscriber'
 require 'octopus/abstract_adapter'
 require 'octopus/singular_association'
 
-require 'octopus/railtie' if defined?(::Rails)
+require 'octopus/railtie' if Octopus.rails?
 
 require 'octopus/proxy'
 require 'octopus/collection_proxy'
